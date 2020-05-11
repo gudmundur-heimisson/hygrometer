@@ -1,10 +1,12 @@
 #include <Adafruit_HTU21DF.h>
 #include <bluefruit.h>
 
+#define VBATPIN A6
+
 BLEDis bledis;
 Adafruit_HTU21DF htu;
 
-uint8_t advData[14];
+uint8_t advData[18];
 
 unsigned long currentMillis;
 unsigned long previousMillis;
@@ -25,10 +27,12 @@ union {
   uint8_t millis_data[4];
 } now;
 
+union {
+  float battery;
+  uint8_t battery_data[4];
+} battery;
+
 void setup() {
-  Serial.begin(115200);
-  while ( !Serial ) delay(10);
-  Serial.println("Started");
   previousMillis = millis();
 
   htu.begin();
@@ -50,26 +54,33 @@ void setupAdv() {
   Bluefruit.Advertising.addFlags(BLE_GAP_ADV_FLAGS_LE_ONLY_GENERAL_DISC_MODE);
   Bluefruit.Advertising.addTxPower();
   Bluefruit.ScanResponse.addName();
-  Bluefruit.Advertising.addManufacturerData(advData, 14);
+  Bluefruit.Advertising.addManufacturerData(advData, 18);
+  Bluefruit.Advertising.setInterval(100, 16384);
   Bluefruit.Advertising.setFastTimeout(1);
+}
+
+float readBatteryVoltage() {
+  return (2.0 * 3.3 * analogRead(VBATPIN)) / 1024.0;
+}
+
+float readBatteryPercentage() {
+  return (readBatteryVoltage() - 3.7) / 4.2;
 }
 
 void loop() {
   currentMillis = millis();
   if (currentMillis - previousMillis > samplingInterval) {
     previousMillis = currentMillis;
-    Serial.println("New sample");
+    battery.battery = readBatteryPercentage();
     temp.temp = htu.readTemperature();
     humidity.humidity = htu.readHumidity();
     for (int i = 0; i < 4; ++i) {
       now.millis = currentMillis;
       advData[2 + i] = now.millis_data[i];
       advData[6 + i] = temp.temp_data[i];
-      Serial.print(temp.temp_data[i]);
-      Serial.print(" ");
       advData[10 + i] = humidity.humidity_data[i];
+      advData[14 + i] = battery.battery_data[i];
     }
-    Serial.println();
     Bluefruit.Advertising.clearData();
     setupAdv();
   }

@@ -20,7 +20,8 @@ def process_adv_hex(adv_hex_list):
   millis = hex_list_to_int(adv_hex_list[:4])
   temp = hex_list_to_float(adv_hex_list[4:8])
   humidity = hex_list_to_float(adv_hex_list[8:12])
-  return millis, temp, humidity
+  battery = hex_list_to_float(adv_hex_list[12:16])
+  return millis, temp, humidity, battery
 
 proc = Popen(['sudo',
               '/home/gummi/git/gattlib/build/examples/advertisement_data/advertisement_data'],
@@ -34,8 +35,9 @@ while True:
     continue
   match = hex_pattern.match(line)
   adv_hex = match.groups()[0].split(' ')
-  millis, temp, humidity = process_adv_hex(adv_hex)
+  millis, temp, humidity, battery = process_adv_hex(adv_hex)
   print("{:d} ms".format(millis))
   print("{:.2f}°F".format(1.8 * temp + 32))
   print("{:.2f}%".format(humidity))
+  print("{:.2f}%".format(battery))
   print()
