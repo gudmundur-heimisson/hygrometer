@@ -23,8 +23,10 @@ def process_adv_hex(adv_hex_list):
   battery = hex_list_to_float(adv_hex_list[12:16])
   return millis, temp, humidity, battery
 
+exe_path = sys.argv[1]
+
 proc = Popen(['sudo',
-              '/home/gummi/git/gattlib/build/examples/advertisement_data/advertisement_data'],
+              exe_path],
               stderr=PIPE,
               errors='utf-8')
 
