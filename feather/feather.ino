@@ -23,6 +23,7 @@ void setup() {
   bledis.begin();
 
   setupAdv();
+  Bluefruit.Advertising.start(0);
 }
 
 void setupAdv() {
@@ -32,7 +33,6 @@ void setupAdv() {
   Bluefruit.ScanResponse.addName();
   Bluefruit.Advertising.addManufacturerData(advData, 5);
   Bluefruit.Advertising.setFastTimeout(1);
-  Bluefruit.Advertising.start(0);
 }
 
 void loop() {
@@ -42,12 +42,6 @@ void loop() {
     Serial.println("New sample\n");
     advData[2]++;
     Bluefruit.Advertising.clearData();
-    Bluefruit.Advertising.setType(BLE_GAP_ADV_TYPE_NONCONNECTABLE_SCANNABLE_UNDIRECTED);
-    Bluefruit.Advertising.addFlags(BLE_GAP_ADV_FLAGS_LE_ONLY_GENERAL_DISC_MODE);
-    Bluefruit.Advertising.addTxPower();
-    Bluefruit.ScanResponse.addName();
-    Bluefruit.Advertising.addManufacturerData(advData, 5);
-    Bluefruit.Advertising.setInterval(32, 244);
-    Bluefruit.Advertising.setFastTimeout(1);
+    setupAdv();
   }
 }
