@@ -1,6 +1,8 @@
+#include <Adafruit_HTU21DF.h>
 #include <bluefruit.h>
 
 BLEDis bledis;
+Adafruit_HTU21DF htu;
 
 uint8_t advData[5] = {
   0xE2, 0xC5, 0x00, 0xC3, 0x42
@@ -13,8 +15,9 @@ unsigned long samplingInterval = 5000;
 void setup() {
   Serial.begin(115200);
   while ( !Serial ) delay(10);
-  Serial.println("Started\n");
+  Serial.println("Started");
   previousMillis = millis();
+  htu.begin();
   Bluefruit.begin();
   Bluefruit.setTxPower(8);
   Bluefruit.setName("Gummi's Hygrometer");
@@ -39,7 +42,15 @@ void loop() {
   currentMillis = millis();
   if (currentMillis - previousMillis > samplingInterval) {
     previousMillis = currentMillis;
-    Serial.println("New sample\n");
+    Serial.println("New sample");
+    float temp = htu.readTemperature();
+    float humidity = htu.readHumidity();
+    Serial.print("Temperature: ");
+    Serial.print(temp, 2);
+    Serial.println(" C");
+    Serial.print("Humidity: ");
+    Serial.print(humidity, 2);
+    Serial.println("%");
     advData[2]++;
     Bluefruit.Advertising.clearData();
     setupAdv();
