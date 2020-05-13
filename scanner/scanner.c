@@ -1,9 +1,9 @@
 #include <glib.h>
 #include <gio/gio.h>
+#include <glib/gprintf.h>
 #include <gobject/gsignal.h>
 #include <bluetooth.h>
 
-GDBusConnection *con;
 
 void on_device_manager_object_added(GDBusObjectManager* device_manager,
                                     GDBusObject* object,
@@ -36,22 +36,45 @@ void on_device_manager_object_added(GDBusObjectManager* device_manager,
                               "Alias"  /* property name */
                             );
   const gchar* alias = g_variant_get_string(alias_variant, NULL  /* length */);
+  g_variant_unref(alias_variant);
   g_print(alias);
   g_print("\n");
 
-  GVariant* manufacturer_data_dict = g_dbus_proxy_get_cached_property(
-                                          device,  /* proxy */
-                                          "ManufacturerData"  /* property name */
-                                        );
-
-  GVariantIter dict_iter;
+   GVariant* manufacturer_data_dict = g_dbus_proxy_get_cached_property(
+                                           device,  /* proxy */
+                                           "ManufacturerData"  /* property name */
+                                         );
+   if (manufacturer_data_dict == NULL) {
+    g_print("No manufacturer data\n");
+    return;
+   }
+  g_print("Got dict\n");
+  size_t manufacturer_data_dict_size = g_variant_n_children(manufacturer_data_dict);
+  g_printf("Size of manufacturer data dict: %d\n", manufacturer_data_dict_size);
+  GVariant* manufacturer_data_item = g_variant_get_child_value(manufacturer_data_dict, 0);
   uint16_t* manufacturer_id;
   GVariant* bytes_variant;
-  g_variant_iter_init(&dict_iter, manufacturer_data_dict);
-  while(g_variant_iter_loop(&dict_iter, "{qv}", &manufacturer_id, &bytes_variant)) {
-    printf("Manufacturer ID: %d\n", *manufacturer_id);
+  g_variant_get(manufacturer_data_item, "{qv}", &manufacturer_id, &bytes_variant);
+  g_printf("Manufacturer ID: %d\n", *manufacturer_id);
+  g_print(g_variant_print(bytes_variant, TRUE));
+  g_print("\n");
+  GVariantIter bytes_iter;
+  g_variant_iter_init(&bytes_iter, bytes_variant);
+  GVariant* byte_variant;
+  size_t index = 0;
+  g_print("Manufacturer data: ");
+  size_t data_size = g_variant_iter_n_children(&bytes_iter);
+  uint8_t* data = (uint8_t*) calloc(data_size, sizeof(uint8_t));
+  while (byte_variant = g_variant_iter_next_value(&bytes_iter)) {
+    uint8_t* byte;
+    g_variant_get(byte_variant, "y", &data[index++]);
   }
- // g_variant_iter_free(dicts_array_iter);
+  for (size_t i = 0; i < data_size; ++i) {
+    g_printf("%x ", data[i]);
+  }
+  g_print("\n");
+  free(data);
+  g_print("\n\n");
 }
 
 int main(void) {
@@ -107,6 +130,7 @@ int main(void) {
     g_print(error->message);
     return 1;
   }
+  g_variant_unref(start_discover_variant);
 
   GVariant* address_variant = g_dbus_proxy_get_cached_property(
                                     adapter,  /* proxy */
@@ -114,6 +138,7 @@ int main(void) {
                           );
   const gchar* address = g_variant_get_string(address_variant,
                                               NULL /* length */);
+  g_variant_unref(address_variant);
   g_print(address);
   g_print("\n");
 
@@ -133,7 +158,7 @@ int main(void) {
     g_print(error -> message);
     return 1;
   }
-
+  g_variant_unref(stop_discover_variant);
 
   return 0;
 }
