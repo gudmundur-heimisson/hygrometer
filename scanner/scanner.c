@@ -1,3 +1,4 @@
+#include <stdint.h>
 #include <glib.h>
 #include <gio/gio.h>
 #include <glib/gprintf.h>
