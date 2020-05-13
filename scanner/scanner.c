@@ -2,13 +2,40 @@
 #include <gio/gio.h>
 #include <glib/gprintf.h>
 #include <gobject/gsignal.h>
-#include <bluetooth.h>
+
+union float_bytes {
+  float value;
+  uint8_t bytes[sizeof(float)];
+};
+
+union ulong_bytes {
+  unsigned long value;
+  uint8_t bytes[sizeof(unsigned long)];
+};
+
+void process_hygro_data(uint8_t* data, size_t data_len) {
+  g_print("Processing hygro data\n");
+  union ulong_bytes millis;
+  union float_bytes temp;
+  union float_bytes humidity;
+  union float_bytes battery;
+  for (int i = 0; i < sizeof(float); ++i) {
+    millis.bytes[i] = data[i];
+    temp.bytes[i] = data[4 + i];
+    humidity.bytes[i] = data[8 + i];
+    battery.bytes[i] = data[12 + i];
+  }
+  //temp.value = bswap_32(temp.value);
+  g_printf("Millis: %d\n", millis.value);
+  g_printf("Temp: %.2f C\n", temp.value);
+  g_printf("Humidity: %.2f%%\n", humidity.value);
+  g_printf("Battery: %.2f%%\n", battery.value);
+}
 
 
 void on_device_manager_object_added(GDBusObjectManager* device_manager,
                                     GDBusObject* object,
                                     gpointer user_data) {
-  g_print("Object added\n");
   const gchar* object_path = g_dbus_object_get_object_path(object);
   GDBusInterface* device_interface = g_dbus_object_manager_get_interface(
                                        device_manager,  /* object manager */
@@ -20,7 +47,7 @@ void on_device_manager_object_added(GDBusObjectManager* device_manager,
     g_print("Not a device.\n");
     return;
   }
-  g_print("Found device.\n");
+  g_print("Found device: ");
   GError* error = NULL;
   GDBusProxy* device = g_dbus_proxy_new_for_bus_sync(
                          G_BUS_TYPE_SYSTEM,  /* bus type */
@@ -45,34 +72,32 @@ void on_device_manager_object_added(GDBusObjectManager* device_manager,
                                            "ManufacturerData"  /* property name */
                                          );
    if (manufacturer_data_dict == NULL) {
-    g_print("No manufacturer data\n");
+    g_print("No manufacturer data\n\n\n");
     return;
    }
-  g_print("Got dict\n");
   size_t manufacturer_data_dict_size = g_variant_n_children(manufacturer_data_dict);
-  g_printf("Size of manufacturer data dict: %d\n", manufacturer_data_dict_size);
   GVariant* manufacturer_data_item = g_variant_get_child_value(manufacturer_data_dict, 0);
   uint16_t* manufacturer_id;
   GVariant* bytes_variant;
   g_variant_get(manufacturer_data_item, "{qv}", &manufacturer_id, &bytes_variant);
   g_printf("Manufacturer ID: %d\n", *manufacturer_id);
-  g_print(g_variant_print(bytes_variant, TRUE));
-  g_print("\n");
   GVariantIter bytes_iter;
   g_variant_iter_init(&bytes_iter, bytes_variant);
   GVariant* byte_variant;
   size_t index = 0;
   g_print("Manufacturer data: ");
-  size_t data_size = g_variant_iter_n_children(&bytes_iter);
-  uint8_t* data = (uint8_t*) calloc(data_size, sizeof(uint8_t));
+  size_t data_len = g_variant_iter_n_children(&bytes_iter);
+  uint8_t* data = (uint8_t*) malloc(data_len * sizeof(uint8_t));
   while (byte_variant = g_variant_iter_next_value(&bytes_iter)) {
-    uint8_t* byte;
     g_variant_get(byte_variant, "y", &data[index++]);
   }
-  for (size_t i = 0; i < data_size; ++i) {
+  for (size_t i = 0; i < data_len; ++i) {
     g_printf("%x ", data[i]);
   }
   g_print("\n");
+  if (strncmp("Gummi", alias, strlen("Gummi")) == 0) {
+    process_hygro_data(data, data_len);
+  }
   free(data);
   g_print("\n\n");
 }

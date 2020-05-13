@@ -23,7 +23,7 @@ union {
 } humidity;
 
 union {
-  long millis;
+  unsigned long millis;
   uint8_t millis_data[4];
 } now;
 
@@ -55,7 +55,7 @@ void setupAdv() {
   Bluefruit.Advertising.addTxPower();
   Bluefruit.ScanResponse.addName();
   Bluefruit.Advertising.addManufacturerData(advData, 18);
-  Bluefruit.Advertising.setInterval(100, 16384);
+  Bluefruit.Advertising.setInterval(100, 100);
   Bluefruit.Advertising.setFastTimeout(1);
 }
 
