@@ -68,10 +68,10 @@ void process_hygro_data(uint8_t* data, size_t data_len) {
     humidity.bytes[i] = data[8 + i];
     battery.bytes[i] = data[12 + i];
   }
-  g_printf("millis: %d ", millis.value);
-  g_printf("temp: %.2f ", temp.value);
-  g_printf("humidity: %.2f ", humidity.value);
-  g_printf("battery: %.2f \n", battery.value);
+  g_fprintf(stderr, "millis: %d ", millis.value);
+  g_fprintf(stderr, "temp: %.2f ", temp.value);
+  g_fprintf(stderr, "humidity: %.2f ", humidity.value);
+  g_fprintf(stderr, "battery: %.2f \n", battery.value);
 }
 
 /**
