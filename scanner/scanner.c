@@ -23,6 +23,8 @@ union ulong_bytes {
 /*
  * The manufacturer data property of the bluez device interface is in a weird
  * data structure, this function unpacks it into a byte array.
+ *
+ * Caller is responsible for freeing the output data.
  */
 void get_manufacturer_data(GVariant* manufacturer_data_dict,  /* in */
                            uint16_t* manufacturer_id,  /* out */
@@ -35,6 +37,7 @@ void get_manufacturer_data(GVariant* manufacturer_data_dict,  /* in */
   // Unpack the manufacturer ID and variant containing the data
   GVariant* bytes_variant;
   g_variant_get(man_data, "{qv}", manufacturer_id, &bytes_variant);
+  g_variant_unref(man_data);
   // Unpack the variant containing the data into a byte array
   GVariantIter bytes_iter;
   g_variant_iter_init(&bytes_iter, bytes_variant);
@@ -45,6 +48,8 @@ void get_manufacturer_data(GVariant* manufacturer_data_dict,  /* in */
   while (byte_variant = g_variant_iter_next_value(&bytes_iter)) {
     g_variant_get(byte_variant, "y", &((*data)[index++]));
   }
+  g_variant_unref(byte_variant);
+  g_variant_iter_free(bytes_iter);
 }
 
 /**
