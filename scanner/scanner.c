@@ -38,53 +38,48 @@ void get_manufacturer_data(GVariant* manufacturer_data_dict,  /* in */
 }
 
 void process_hygro_data(uint8_t* data, size_t data_len) {
-  g_print("Processing hygro data\n");
   union ulong_bytes millis;
   union float_bytes temp;
   union float_bytes humidity;
   union float_bytes battery;
-  for (int i = 0; i < sizeof(float); ++i) {
+  for (int i = 0; i < 4; ++i) {
     millis.bytes[i] = data[i];
     temp.bytes[i] = data[4 + i];
     humidity.bytes[i] = data[8 + i];
     battery.bytes[i] = data[12 + i];
   }
-  //temp.value = bswap_32(temp.value);
-  g_printf("Millis: %d\n", millis.value);
-  g_printf("Temp: %.2f C\n", temp.value);
-  g_printf("Humidity: %.2f%%\n", humidity.value);
-  g_printf("Battery: %.2f%%\n", battery.value);
+  g_printf("millis: %d ", millis.value);
+  g_printf("temp: %.2f ", temp.value);
+  g_printf("humidity: %.2f ", humidity.value);
+  g_printf("battery: %.2f \n", battery.value);
+}
+
+void process_manufacturer_data(GVariant* manufacturer_data_variant) {
+  uint16_t manufacturer_id;
+  uint8_t* data;
+  size_t data_len;
+  get_manufacturer_data(manufacturer_data_variant,
+                        &manufacturer_id,
+                        &data,
+                        &data_len);
+  process_hygro_data(data, data_len);
 }
 
 void on_device_properties_changed(GDBusProxy* device,
                                   GVariant* changed_properties,
                                   GStrv invalidated_properties,
                                   gpointer user_data) {
-  g_print("Props changed: ");
-  g_print(g_variant_print(changed_properties, TRUE));
-  g_print("\n");
   GVariantIter* props_iter;
   g_variant_get(changed_properties, "a{sv}", &props_iter);
   char* prop_name;
   GVariant* prop_value;
   while (g_variant_iter_loop(props_iter, "{sv}", &prop_name, &prop_value)) {
-    g_printf("%s: %s\n", prop_name, g_variant_print(prop_value, TRUE));
     if (g_str_equal(prop_name, "ManufacturerData")) {
-      uint16_t manufacturer_id;
-      uint8_t* manufacturer_data;
-      size_t manufacturer_data_len;
-      get_manufacturer_data(prop_value,
-                            &manufacturer_id,
-                            &manufacturer_data,
-                            &manufacturer_data_len);
-      g_printf("Manufacturer ID: %x\n", manufacturer_id);
-      process_hygro_data(manufacturer_data, manufacturer_data_len);
+      process_manufacturer_data(prop_value);
     }
   }
-  free(manufacturer_data);
   g_variant_iter_free(props_iter);
 }
-
 
 void on_device_manager_object_added(GDBusObjectManager* device_manager,
                                     GDBusObject* object,
@@ -96,11 +91,8 @@ void on_device_manager_object_added(GDBusObjectManager* device_manager,
                                        BLUEZ_DEVICE_INTERFACE  /* interface name */
                                      );
   if (device_interface == NULL) {
-    // Not a device
-    g_print("Not a device.\n");
     return;
   }
-  g_print("Found device: ");
   GError* error = NULL;
   GDBusProxy* device = g_dbus_proxy_new_for_bus_sync(
                          G_BUS_TYPE_SYSTEM,  /* bus type */
@@ -110,47 +102,28 @@ void on_device_manager_object_added(GDBusObjectManager* device_manager,
                          object_path,  /* object path */
                          BLUEZ_DEVICE_INTERFACE,  /* interface name */
                          NULL,  /* cancellable */
-                         &error);
+                         &error
+                       );
   GVariant* alias_variant = g_dbus_proxy_get_cached_property(
                               device,  /* proxy */
                               "Alias"  /* property name */
                             );
   const gchar* alias = g_variant_get_string(alias_variant, NULL  /* length */);
-  g_variant_unref(alias_variant);
-  g_print(alias);
-  g_print("\n");
-
-   GVariant* manufacturer_data_dict = g_dbus_proxy_get_cached_property(
-                                           device,  /* proxy */
-                                           "ManufacturerData"  /* property name */
-                                         );
-   if (manufacturer_data_dict == NULL) {
-    g_print("No manufacturer data\n\n\n");
-    return;
-   }
-  uint16_t manufacturer_id;
-  uint8_t* manufacturer_data;
-  size_t manufacturer_data_len;
-  get_manufacturer_data(manufacturer_data_dict,
-                        &manufacturer_id,
-                        &manufacturer_data,
-                        &manufacturer_data_len);
-  g_variant_unref(manufacturer_data_dict);
-  g_printf("Manufacturer ID: %x\n", manufacturer_id);
-  g_print("Manufacturer Data:");
-  for (int i = 0; i < manufacturer_data_len; ++i) {
-    g_printf(" %x", manufacturer_data[i]);
-  }
-  g_print("\n");
   if (strncmp("Gummi", alias, strlen("Gummi")) == 0) {
-    process_hygro_data(manufacturer_data, manufacturer_data_len);
-    g_signal_connect(device, 
-                     "g-properties-changed",
-                     G_CALLBACK(on_device_properties_changed),
-                     NULL);
+    g_printf("Object added: %s\n", object_path);
+    GVariant* manufacturer_data_dict = g_dbus_proxy_get_cached_property(
+                                         device,  /* proxy */
+                                         "ManufacturerData"  /* property name */
+                                       );
+    process_manufacturer_data(manufacturer_data_dict);
+    g_signal_connect(
+      device, 
+      "g-properties-changed",
+      G_CALLBACK(on_device_properties_changed),
+      NULL
+    );
+    g_variant_unref(manufacturer_data_dict);
   }
-  free(manufacturer_data);
-  g_print("\n\n");
 }
 
 int main(void) {
@@ -173,12 +146,12 @@ int main(void) {
     return 1;
   }
 
-  gulong handler_id = g_signal_connect(
-                         device_manager,  /* instance */
-                         "object-added",  /* detailed signal */
-                         G_CALLBACK(on_device_manager_object_added),  /* callback */
-                         NULL  /* data */
-                       );
+  g_signal_connect(
+    device_manager,  /* instance */
+    "object-added",  /* detailed signal */
+    G_CALLBACK(on_device_manager_object_added),  /* callback */
+    NULL  /* data */
+  );
 
   error = NULL;
   GDBusProxy* adapter = g_dbus_proxy_new_for_bus_sync(
@@ -206,18 +179,6 @@ int main(void) {
     return 1;
   }
   g_variant_unref(start_discover_variant);
-
-  GVariant* address_variant = g_dbus_proxy_get_cached_property(
-                                adapter,  /* proxy */
-                                "Address"  /* property name */
-                              );
-  const gchar* address = g_variant_get_string(
-                           address_variant,
-                           NULL /* length */
-                         );
-  g_variant_unref(address_variant);
-  g_print(address);
-  g_print("\n\n");
 
   g_main_loop_run(loop);
 
