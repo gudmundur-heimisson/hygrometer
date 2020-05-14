@@ -60,6 +60,23 @@ void on_device_properties_changed(GDBusProxy* device,
   g_print("\n");
   GVariantIter* props_iter;
   g_variant_get(changed_properties, "a{sv}", &props_iter);
+  char* prop_name;
+  GVariant* prop_value;
+  while (g_variant_iter_loop(props_iter, "{sv}", &prop_name, &prop_value)) {
+    g_printf("%s: %s\n", prop_name, g_variant_print(prop_value, TRUE));
+    if (g_str_equal(prop_name, "ManufacturerData")) {
+      uint16_t manufacturer_id;
+      uint8_t* manufacturer_data;
+      size_t manufacturer_data_len;
+      get_manufacturer_data(prop_value,
+                            &manufacturer_id,
+                            &manufacturer_data,
+                            &manufacturer_data_len);
+      g_printf("Manufacturer ID: %x\n", manufacturer_id);
+      process_hygro_data(manufacturer_data, manufacturer_data_len);
+    }
+  }
+  g_variant_iter_free(props_iter);
 }
 
 
@@ -112,6 +129,7 @@ void on_device_manager_object_added(GDBusObjectManager* device_manager,
                         &manufacturer_id,
                         &manufacturer_data,
                         &manufacturer_data_len);
+  g_variant_unref(manufacturer_data_dict);
   g_printf("Manufacturer ID: %x\n", manufacturer_id);
   g_print("Manufacturer Data:");
   for (int i = 0; i < manufacturer_data_len; ++i) {
