@@ -110,7 +110,6 @@ void on_device_manager_object_added(GDBusObjectManager* device_manager,
                             );
   const gchar* alias = g_variant_get_string(alias_variant, NULL  /* length */);
   if (strncmp("Gummi", alias, strlen("Gummi")) == 0) {
-    g_printf("Object added: %s\n", object_path);
     GVariant* manufacturer_data_dict = g_dbus_proxy_get_cached_property(
                                          device,  /* proxy */
                                          "ManufacturerData"  /* property name */
@@ -146,12 +145,6 @@ int main(void) {
     return 1;
   }
 
-  g_signal_connect(
-    device_manager,  /* instance */
-    "object-added",  /* detailed signal */
-    G_CALLBACK(on_device_manager_object_added),  /* callback */
-    NULL  /* data */
-  );
 
   error = NULL;
   GDBusProxy* adapter = g_dbus_proxy_new_for_bus_sync(
@@ -164,6 +157,20 @@ int main(void) {
                           NULL,  /* cancellable */
                           &error  /* error */
                         );
+
+  // Check to see if device already exists
+  GList* devices = g_dbus_object_manager_get_objects(device_manager);
+  for (GList* d = devices; d != NULL; d = d->next) {
+    GDBusObject* device = (GDBusObject*) d->data;
+    on_device_manager_object_added(device_manager, device, NULL);
+  }
+
+  g_signal_connect(
+    device_manager,  /* instance */
+    "object-added",  /* detailed signal */
+    G_CALLBACK(on_device_manager_object_added),  /* callback */
+    NULL  /* data */
+  );
 
   GVariant* start_discover_variant = g_dbus_proxy_call_sync(
                                       adapter,  /* proxy */
