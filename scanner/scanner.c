@@ -4,6 +4,11 @@
 #include <glib/gprintf.h>
 #include <gobject/gsignal.h>
 
+const char BLUEZ_DEVICE_INTERFACE[] = "org.bluez.Device1";
+const char BLUEZ_BUS[] = "org.bluez";
+const char BLUEZ_ADAPTER_INTERFACE[] = "org.bluez.Adapter1";
+const char BLUEZ_ADAPTER_PATH[] = "/org/bluez/hci0";
+
 union float_bytes {
   float value;
   uint8_t bytes[sizeof(float)];
@@ -76,6 +81,7 @@ void on_device_properties_changed(GDBusProxy* device,
       process_hygro_data(manufacturer_data, manufacturer_data_len);
     }
   }
+  free(manufacturer_data);
   g_variant_iter_free(props_iter);
 }
 
@@ -87,8 +93,8 @@ void on_device_manager_object_added(GDBusObjectManager* device_manager,
   GDBusInterface* device_interface = g_dbus_object_manager_get_interface(
                                        device_manager,  /* object manager */
                                        object_path,  /* object path */
-                                       "org.bluez.Device1"  /* interface name */
-                                      );
+                                       BLUEZ_DEVICE_INTERFACE  /* interface name */
+                                     );
   if (device_interface == NULL) {
     // Not a device
     g_print("Not a device.\n");
@@ -100,9 +106,9 @@ void on_device_manager_object_added(GDBusObjectManager* device_manager,
                          G_BUS_TYPE_SYSTEM,  /* bus type */
                          G_DBUS_PROXY_FLAGS_NONE,  /* flags */
                          NULL,  /* info */
-                         "org.bluez",  /* bus name */
+                         BLUEZ_BUS,  /* bus name */
                          object_path,  /* object path */
-                         "org.bluez.Device1",  /* interface name */
+                         BLUEZ_DEVICE_INTERFACE,  /* interface name */
                          NULL,  /* cancellable */
                          &error);
   GVariant* alias_variant = g_dbus_proxy_get_cached_property(
@@ -148,14 +154,13 @@ void on_device_manager_object_added(GDBusObjectManager* device_manager,
 }
 
 int main(void) {
-
   GMainLoop* loop = g_main_loop_new(NULL, FALSE);
 
   GError* error = NULL;
   GDBusObjectManager* device_manager = g_dbus_object_manager_client_new_for_bus_sync(
                                          G_BUS_TYPE_SYSTEM,  /* bus type */
                                          G_DBUS_OBJECT_MANAGER_CLIENT_FLAGS_NONE,  /* flags */
-                                         "org.bluez",  /* name */
+                                         BLUEZ_BUS,  /* name */
                                          "/",  /* object path */
                                          NULL,  /* get proxy type function */
                                          NULL,  /* get proxy type user data */
@@ -169,23 +174,23 @@ int main(void) {
   }
 
   gulong handler_id = g_signal_connect(
-                       device_manager,  /* instance */
-                       "object-added",  /* detailed signal */
-                       G_CALLBACK(on_device_manager_object_added),  /* callback */
-                       NULL  /* data */
+                         device_manager,  /* instance */
+                         "object-added",  /* detailed signal */
+                         G_CALLBACK(on_device_manager_object_added),  /* callback */
+                         NULL  /* data */
                        );
 
   error = NULL;
   GDBusProxy* adapter = g_dbus_proxy_new_for_bus_sync(
-                        G_BUS_TYPE_SYSTEM,  /* bus type */
-                        G_DBUS_PROXY_FLAGS_NONE,  /* flags */
-                        NULL,  /* info */
-                        "org.bluez",  /* name */
-                        "/org/bluez/hci0",  /* object path */
-                        "org.bluez.Adapter1",  /* interface name */
-                        NULL,  /* cancellable */
-                        &error  /* error */
-                      );
+                          G_BUS_TYPE_SYSTEM,  /* bus type */
+                          G_DBUS_PROXY_FLAGS_NONE,  /* flags */
+                          NULL,  /* info */
+                          BLUEZ_BUS,  /* name */
+                          BLUEZ_ADAPTER_PATH,  /* object path */
+                          BLUEZ_ADAPTER_INTERFACE,  /* interface name */
+                          NULL,  /* cancellable */
+                          &error  /* error */
+                        );
 
   GVariant* start_discover_variant = g_dbus_proxy_call_sync(
                                       adapter,  /* proxy */
@@ -203,26 +208,28 @@ int main(void) {
   g_variant_unref(start_discover_variant);
 
   GVariant* address_variant = g_dbus_proxy_get_cached_property(
-                                    adapter,  /* proxy */
-                                    "Address"  /* property name */
-                          );
-  const gchar* address = g_variant_get_string(address_variant,
-                                              NULL /* length */);
+                                adapter,  /* proxy */
+                                "Address"  /* property name */
+                              );
+  const gchar* address = g_variant_get_string(
+                           address_variant,
+                           NULL /* length */
+                         );
   g_variant_unref(address_variant);
   g_print(address);
-  g_print("\n");
+  g_print("\n\n");
 
   g_main_loop_run(loop);
 
   error = NULL;
   GVariant* stop_discover_variant = g_dbus_proxy_call_sync(
-                                     adapter,  /* proxy */
-                                     "StopDiscovery",  /* method name */
-                                     NULL,  /* parameters */
-                                     G_DBUS_CALL_FLAGS_NONE,  /* flags */
-                                     -1,  /* timeout_msec */
-                                     NULL,  /* cancellable */
-                                     &error  /* error */
+                                      adapter,  /* proxy */
+                                      "StopDiscovery",  /* method name */
+                                      NULL,  /* parameters */
+                                      G_DBUS_CALL_FLAGS_NONE,  /* flags */
+                                      -1,  /* timeout_msec */
+                                      NULL,  /* cancellable */
+                                      &error  /* error */
                                     );
   if (stop_discover_variant == NULL) {
     g_print(error -> message);
