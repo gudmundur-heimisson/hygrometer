@@ -14,6 +14,24 @@ union ulong_bytes {
   uint8_t bytes[sizeof(unsigned long)];
 };
 
+void get_manufacturer_data(GVariant* manufacturer_data_dict,  /* in */
+                           uint16_t* manufacturer_id,  /* out */
+                           uint8_t** data,  /* out */
+                           size_t* data_len  /* out */) {
+  GVariant* man_data = g_variant_get_child_value(manufacturer_data_dict, 0);
+  GVariant* bytes_variant;
+  g_variant_get(man_data, "{qv}", manufacturer_id, &bytes_variant);
+  GVariantIter bytes_iter;
+  g_variant_iter_init(&bytes_iter, bytes_variant);
+  GVariant* byte_variant;
+  *data_len = g_variant_iter_n_children(&bytes_iter);
+  *data = (uint8_t*) malloc(*data_len * sizeof(uint8_t));
+  size_t index = 0;
+  while (byte_variant = g_variant_iter_next_value(&bytes_iter)) {
+    g_variant_get(byte_variant, "y", &((*data)[index++]));
+  }
+}
+
 void process_hygro_data(uint8_t* data, size_t data_len) {
   g_print("Processing hygro data\n");
   union ulong_bytes millis;
@@ -31,6 +49,17 @@ void process_hygro_data(uint8_t* data, size_t data_len) {
   g_printf("Temp: %.2f C\n", temp.value);
   g_printf("Humidity: %.2f%%\n", humidity.value);
   g_printf("Battery: %.2f%%\n", battery.value);
+}
+
+void on_device_properties_changed(GDBusProxy* device,
+                                  GVariant* changed_properties,
+                                  GStrv invalidated_properties,
+                                  gpointer user_data) {
+  g_print("Props changed: ");
+  g_print(g_variant_print(changed_properties, TRUE));
+  g_print("\n");
+  GVariantIter* props_iter;
+  g_variant_get(changed_properties, "a{sv}", &props_iter);
 }
 
 
@@ -76,30 +105,27 @@ void on_device_manager_object_added(GDBusObjectManager* device_manager,
     g_print("No manufacturer data\n\n\n");
     return;
    }
-  size_t manufacturer_data_dict_size = g_variant_n_children(manufacturer_data_dict);
-  GVariant* manufacturer_data_item = g_variant_get_child_value(manufacturer_data_dict, 0);
-  uint16_t* manufacturer_id;
-  GVariant* bytes_variant;
-  g_variant_get(manufacturer_data_item, "{qv}", &manufacturer_id, &bytes_variant);
-  g_printf("Manufacturer ID: %d\n", *manufacturer_id);
-  GVariantIter bytes_iter;
-  g_variant_iter_init(&bytes_iter, bytes_variant);
-  GVariant* byte_variant;
-  size_t index = 0;
-  g_print("Manufacturer data: ");
-  size_t data_len = g_variant_iter_n_children(&bytes_iter);
-  uint8_t* data = (uint8_t*) malloc(data_len * sizeof(uint8_t));
-  while (byte_variant = g_variant_iter_next_value(&bytes_iter)) {
-    g_variant_get(byte_variant, "y", &data[index++]);
-  }
-  for (size_t i = 0; i < data_len; ++i) {
-    g_printf("%x ", data[i]);
+  uint16_t manufacturer_id;
+  uint8_t* manufacturer_data;
+  size_t manufacturer_data_len;
+  get_manufacturer_data(manufacturer_data_dict,
+                        &manufacturer_id,
+                        &manufacturer_data,
+                        &manufacturer_data_len);
+  g_printf("Manufacturer ID: %x\n", manufacturer_id);
+  g_print("Manufacturer Data:");
+  for (int i = 0; i < manufacturer_data_len; ++i) {
+    g_printf(" %x", manufacturer_data[i]);
   }
   g_print("\n");
   if (strncmp("Gummi", alias, strlen("Gummi")) == 0) {
-    process_hygro_data(data, data_len);
+    process_hygro_data(manufacturer_data, manufacturer_data_len);
+    g_signal_connect(device, 
+                     "g-properties-changed",
+                     G_CALLBACK(on_device_properties_changed),
+                     NULL);
   }
-  free(data);
+  free(manufacturer_data);
   g_print("\n\n");
 }
 
