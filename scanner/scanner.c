@@ -48,8 +48,8 @@ void get_manufacturer_data(GVariant* manufacturer_data_dict,  /* in */
   while (byte_variant = g_variant_iter_next_value(&bytes_iter)) {
     g_variant_get(byte_variant, "y", &((*data)[index++]));
   }
-  g_variant_unref(byte_variant);
-  g_variant_iter_free(bytes_iter);
+  // g_variant_iter_next_value takes care of unreferencing iterator and
+  // bytes variant.
 }
 
 /**
