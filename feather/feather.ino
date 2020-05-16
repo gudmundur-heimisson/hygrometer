@@ -1,7 +1,11 @@
 #include <Adafruit_HTU21DF.h>
 #include <bluefruit.h>
 
-#define VBATPIN A6
+#define VBATPIN A8
+
+// Function prototypes from battery.cpp
+float readVBAT(void);
+float mvToPercent(float);
 
 BLEDis bledis;
 Adafruit_HTU21DF htu;
@@ -10,34 +14,32 @@ uint8_t advData[18];
 
 unsigned long currentMillis;
 unsigned long previousMillis;
-unsigned long samplingInterval = 5000;
+// 30 seconds
+unsigned long samplingInterval = 30000;
 
-union {
-  float temp;
-  uint8_t temp_data[4];
-} temp;
+union float_data {
+  float value;
+  uint8_t bytes[4];
+};
 
-union {
-  float humidity;
-  uint8_t humidity_data[4];
-} humidity;
+union ulong_data {
+  unsigned long value;
+  uint8_t bytes[4];
+};
 
-union {
-  unsigned long millis;
-  uint8_t millis_data[4];
-} now;
-
-union {
-  float battery;
-  uint8_t battery_data[4];
-} battery;
+union float_data temp;
+union float_data humidity;
+union float_data battery;
+union ulong_data now;
 
 void setup() {
   previousMillis = millis();
-
   htu.begin();
   Bluefruit.begin();
-  Bluefruit.setTxPower(8);
+  // Lowest transaction power
+  Bluefruit.setTxPower(-20);
+  // Turn off blue LED
+  Bluefruit.autoConnLed(false);
   Bluefruit.setName("Gummi's Hygrometer");
   bledis.setManufacturer("Gummi");
   bledis.setModel("Bluefruit Feather52");
@@ -55,31 +57,26 @@ void setupAdv() {
   Bluefruit.Advertising.addTxPower();
   Bluefruit.ScanResponse.addName();
   Bluefruit.Advertising.addManufacturerData(advData, 18);
-  Bluefruit.Advertising.setInterval(100, 100);
+  // Slow sampling interval at 10.24 seconds, maximum allowed
+  Bluefruit.Advertising.setInterval(100, 16384);
+  // Lowest allowable fast timeout, 0.625 ms
   Bluefruit.Advertising.setFastTimeout(1);
-}
-
-float readBatteryVoltage() {
-  return (2.0 * 3.3 * analogRead(VBATPIN)) / 1024.0;
-}
-
-float readBatteryPercentage() {
-  return (readBatteryVoltage() - 3.7) / 4.2;
 }
 
 void loop() {
   currentMillis = millis();
   if (currentMillis - previousMillis > samplingInterval) {
     previousMillis = currentMillis;
-    battery.battery = readBatteryPercentage();
-    temp.temp = htu.readTemperature();
-    humidity.humidity = htu.readHumidity();
+    now.value = currentMillis;
+    temp.value = htu.readTemperature();
+    humidity.value = htu.readHumidity();
+    float mvbat = readVBAT();
+    battery.value = mvToPercent(mvbat);
     for (int i = 0; i < 4; ++i) {
-      now.millis = currentMillis;
-      advData[2 + i] = now.millis_data[i];
-      advData[6 + i] = temp.temp_data[i];
-      advData[10 + i] = humidity.humidity_data[i];
-      advData[14 + i] = battery.battery_data[i];
+      advData[2 + i] = now.bytes[i];
+      advData[6 + i] = temp.bytes[i];
+      advData[10 + i] = humidity.bytes[i];
+      advData[14 + i] = battery.bytes[i];
     }
     Bluefruit.Advertising.clearData();
     setupAdv();

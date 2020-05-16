@@ -27,4 +27,4 @@ with proc:
     humidity = float(humidity)
     battery = float(battery)
     print(millis, temp, humidity, battery, sep="\n")
-    seg.print(f"{temp:0.0f}{humidity:0.0f}")
+    seg.print("{0:0.0f}{1:0.0f}".format(humidity, battery))
