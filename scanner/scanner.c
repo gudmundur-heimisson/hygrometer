@@ -10,7 +10,7 @@ const char BLUEZ_DEVICE_INTERFACE[] = "org.bluez.Device1";
 const char BLUEZ_BUS[] = "org.bluez";
 const char BLUEZ_ADAPTER_INTERFACE[] = "org.bluez.Adapter1";
 const char BLUEZ_ADAPTER_PATH[] = "/org/bluez/hci0";
-const char URL_FORMAT[] = "localhost:5000/set-led/%0.2f";
+const char LED_SERVER_URL_FORMAT[] = "localhost:5000/set-led/%0.2f";
 
 GDBusProxy* adapter;
 GError* error;
@@ -34,10 +34,11 @@ void send_led_curl(float value) {
   if (curl == NULL) {
     g_fprintf(stderr, "Failed to initialize cURL\n");
   }
-  sprintf(url, URL_FORMAT, value);
+  sprintf(url, LED_SERVER_URL_FORMAT, value);
   g_fprintf(stderr, url);
   curl_easy_setopt(curl, CURLOPT_URL, url);
   curl_easy_setopt(curl, CURLOPT_HTTPGET, 1);
+  curl_easy_perform(curl);
   curl_easy_cleanup(curl);
 }
 
@@ -92,6 +93,7 @@ void process_hygro_data(uint8_t* data, size_t data_len) {
   g_fprintf(stderr, "temp: %.2f ", temp.value);
   g_fprintf(stderr, "humidity: %.2f ", humidity.value);
   g_fprintf(stderr, "battery: %.2f \n", battery.value);
+  send_led_curl(temp.value);
 }
 
 /**
@@ -107,7 +109,6 @@ void process_manufacturer_data(GVariant* manufacturer_data_variant) {
                         &data,
                         &data_len);
   process_hygro_data(data, data_len);
-  send_led_curl(3.14);
   free(data);
 }
 
