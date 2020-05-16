@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <glib.h>
+#include <curl.h>
 #include <gio/gio.h>
 #include <glib/gprintf.h>
 #include <gobject/gsignal.h>
@@ -9,6 +10,7 @@ const char BLUEZ_DEVICE_INTERFACE[] = "org.bluez.Device1";
 const char BLUEZ_BUS[] = "org.bluez";
 const char BLUEZ_ADAPTER_INTERFACE[] = "org.bluez.Adapter1";
 const char BLUEZ_ADAPTER_PATH[] = "/org/bluez/hci0";
+const char URL_FORMAT[] = "localhost:5000/set-led/%0.2f";
 
 GDBusProxy* adapter;
 GError* error;
@@ -25,6 +27,19 @@ union ulong_bytes {
   unsigned long value;
   uint8_t bytes[sizeof(unsigned long)];
 };
+
+void send_led_curl(float value) {
+  char url[128];
+  CURL* curl = curl_easy_init();
+  if (curl == NULL) {
+    g_fprintf(stderr, "Failed to initialize cURL\n");
+  }
+  sprintf(url, URL_FORMAT, value);
+  g_fprintf(stderr, url);
+  curl_easy_setopt(curl, CURLOPT_URL, url);
+  curl_easy_setopt(curl, CURLOPT_HTTPGET, 1);
+  curl_easy_cleanup(curl);
+}
 
 /*
  * The manufacturer data property of the bluez device interface is in a weird
@@ -92,6 +107,7 @@ void process_manufacturer_data(GVariant* manufacturer_data_variant) {
                         &data,
                         &data_len);
   process_hygro_data(data, data_len);
+  send_led_curl(3.14);
   free(data);
 }
 
