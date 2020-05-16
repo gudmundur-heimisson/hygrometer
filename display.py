@@ -13,8 +13,7 @@ output_pattern = re.compile(r"millis: (?P<millis>\d+) "
                             r"battery: (?P<battery>[\d\.])")
 
 proc = Popen(['/home/gummi/git/hygrometer/scanner/scanner'],
-              stderr=PIPE,
-              errors='utf-8')
+              stderr=PIPE)
 
 with proc:
   while True:
