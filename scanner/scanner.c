@@ -201,9 +201,10 @@ void cleanup(int sig_num) {
   g_object_unref(adapter);
   if (stop_discover_variant == NULL) {
     g_fprintf(stderr, error->message);
-    return;
+    exit(1);
   }
   g_variant_unref(stop_discover_variant);
+  exit(1);
 
 }
 
@@ -228,7 +229,7 @@ int main(void) {
 
   // Get the bluez bus to listen for new devices being discovered
   error = NULL;
-  GDBusObjectManager* device_manager = g_dbus_object_manager_client_new_for_bus_sync(
+  device_manager = g_dbus_object_manager_client_new_for_bus_sync(
                                          G_BUS_TYPE_SYSTEM,  /* bus type */
                                          G_DBUS_OBJECT_MANAGER_CLIENT_FLAGS_NONE,  /* flags */
                                          BLUEZ_BUS,  /* name */
