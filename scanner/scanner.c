@@ -10,8 +10,9 @@ const char BLUEZ_DEVICE_INTERFACE[] = "org.bluez.Device1";
 const char BLUEZ_BUS[] = "org.bluez";
 const char BLUEZ_ADAPTER_INTERFACE[] = "org.bluez.Adapter1";
 const char BLUEZ_ADAPTER_PATH[] = "/org/bluez/hci0";
-const char LED_SERVER_URL_FORMAT[] = "localhost:5000/set-led/%0.2f";
+const char LED_SERVER_URL_FORMAT[] = "%s/set-led/%0.2f/%0.2f";
 
+char* led_url;
 GDBusProxy* adapter;
 GError* error;
 GDBusObjectManager* device_manager;
@@ -28,14 +29,14 @@ union ulong_bytes {
   uint8_t bytes[sizeof(unsigned long)];
 };
 
-void send_led_curl(float value) {
-  char url[128];
+// Send data to LED server to display
+void send_led_curl(float humidity, float battery) {
+  char url[256];
   CURL* curl = curl_easy_init();
   if (curl == NULL) {
     g_fprintf(stderr, "Failed to initialize cURL\n");
   }
-  sprintf(url, LED_SERVER_URL_FORMAT, value);
-  g_fprintf(stderr, url);
+  sprintf(led_url, LED_SERVER_URL_FORMAT, url, humidity, battery);
   curl_easy_setopt(curl, CURLOPT_URL, url);
   curl_easy_setopt(curl, CURLOPT_HTTPGET, 1);
   curl_easy_perform(curl);
@@ -93,7 +94,7 @@ void process_hygro_data(uint8_t* data, size_t data_len) {
   g_fprintf(stderr, "temp: %.2f ", temp.value);
   g_fprintf(stderr, "humidity: %.2f ", humidity.value);
   g_fprintf(stderr, "battery: %.2f \n", battery.value);
-  send_led_curl(temp.value);
+  send_led_curl(humidity.value, battery.value);
 }
 
 /**
@@ -221,11 +222,15 @@ void cleanup(int sig_num) {
     exit(1);
   }
   g_variant_unref(stop_discover_variant);
-  exit(1);
-
+  exit(0);
 }
 
-int main(void) {
+int main(int argc, char* argv[]) {
+  if (argc != 2) {
+    g_fprintf(stderr, "Need exactly one argument.");
+    exit(0);
+  }
+  led_url = argv[1];
   GMainLoop* loop = g_main_loop_new(NULL, FALSE);
 
   // Get the default bluetooth adapter to do device scanning
