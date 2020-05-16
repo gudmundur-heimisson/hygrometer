@@ -9,6 +9,6 @@ app = Flask(__name__)
 
 @app.route("/set-led/<float:value1>/<float:value2>")
 def set_led(value1, value2):
-  str_ = '{0:2.0f}{1:2.0f}'.format(value1, value2)
+  str_ = '{0:<2.0f}{1:>2.0f}'.format(value1, value2)
   seg.print(str_)
   return "Set LED to {0}".format(str_)
