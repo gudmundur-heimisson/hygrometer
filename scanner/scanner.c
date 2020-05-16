@@ -36,7 +36,7 @@ void send_led_curl(float humidity, float battery) {
   if (curl == NULL) {
     g_fprintf(stderr, "Failed to initialize cURL\n");
   }
-  sprintf(led_url, LED_SERVER_URL_FORMAT, url, humidity, battery);
+  sprintf(url, LED_SERVER_URL_FORMAT, led_url, humidity, battery);
   curl_easy_setopt(curl, CURLOPT_URL, url);
   curl_easy_setopt(curl, CURLOPT_HTTPGET, 1);
   curl_easy_perform(curl);
@@ -227,7 +227,7 @@ void cleanup(int sig_num) {
 
 int main(int argc, char* argv[]) {
   if (argc != 2) {
-    g_fprintf(stderr, "Need exactly one argument.");
+    g_fprintf(stderr, "Need exactly one argument.\n");
     exit(0);
   }
   led_url = argv[1];
