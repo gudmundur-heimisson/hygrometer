@@ -11,3 +11,4 @@ app = Flask(__name__)
 def set_led(value1, value2):
   str_ = '{0:2.0f}{0:2.0f}'.format(value1, value2)
   seg.print(str_)
+  return "Set LED to {0}".format(str_)
