@@ -6,7 +6,6 @@ from adafruit_ht16k33 import segments
 
 i2c = busio.I2C(board.SCL, board.SDA)
 seg = segments.Seg14x4(i2c)
-seg.print(str_)
 
 output_pattern = re.compile(r"millis: (?P<millis>\d+) "
                             r"temp: (?P<temp>[\d\.]+) "
