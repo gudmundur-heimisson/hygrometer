@@ -186,7 +186,7 @@ void on_device_manager_object_added(GDBusObjectManager* device_manager,
 }
 
 void cleanup(int sig_num) {
-  g_fprintf(stderr, "Terminating bluetooth discovery");
+  g_fprintf(stderr, "Terminating bluetooth discovery\n");
   GVariant* stop_discover_variant = g_dbus_proxy_call_sync(
                                       adapter,
                                       "StopDiscovery",
