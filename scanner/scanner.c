@@ -10,6 +10,11 @@ const char BLUEZ_BUS[] = "org.bluez";
 const char BLUEZ_ADAPTER_INTERFACE[] = "org.bluez.Adapter1";
 const char BLUEZ_ADAPTER_PATH[] = "/org/bluez/hci0";
 
+GDBusProxy* adapter;
+GError* error;
+GDBusObjectManager* device_manager;
+unsigned long device_manager_signal_handler;
+
 // Used to get float values from the raw bytes of the manufacturer data
 union float_bytes {
   float value;
@@ -180,21 +185,42 @@ void on_device_manager_object_added(GDBusObjectManager* device_manager,
   g_variant_unref(alias_variant);
 }
 
+void cleanup(int sig_num) {
+  g_fprintf(stderr, "Terminating bluetooth discovery");
+  GVariant* stop_discover_variant = g_dbus_proxy_call_sync(
+                                      adapter,
+                                      "StopDiscovery",
+                                      NULL,
+                                      G_DBUS_CALL_FLAGS_NONE,
+                                      -1,
+                                      NULL,
+                                      &error
+                                    );
+  g_signal_handler_disconnect(device_manager,
+                              device_manager_signal_handler);
+  g_object_unref(adapter);
+  if (stop_discover_variant == NULL) {
+    g_fprintf(stderr, error->message);
+    return;
+  }
+  g_variant_unref(stop_discover_variant);
+
+}
+
 int main(void) {
   GMainLoop* loop = g_main_loop_new(NULL, FALSE);
 
   // Get the default bluetooth adapter to do device scanning
-  GError* error = NULL;
-  GDBusProxy* adapter = g_dbus_proxy_new_for_bus_sync(
-                          G_BUS_TYPE_SYSTEM,  /* bus type */
-                          G_DBUS_PROXY_FLAGS_NONE,  /* flags */
-                          NULL,  /* info */
-                          BLUEZ_BUS,  /* name */
-                          BLUEZ_ADAPTER_PATH,  /* object path */
-                          BLUEZ_ADAPTER_INTERFACE,  /* interface name */
-                          NULL,  /* cancellable */
-                          &error  /* error */
-                        );
+  adapter = g_dbus_proxy_new_for_bus_sync(
+              G_BUS_TYPE_SYSTEM,  /* bus type */
+              G_DBUS_PROXY_FLAGS_NONE,  /* flags */
+              NULL,  /* info */
+              BLUEZ_BUS,  /* name */
+              BLUEZ_ADAPTER_PATH,  /* object path */
+              BLUEZ_ADAPTER_INTERFACE,  /* interface name */
+              NULL,  /* cancellable */
+              &error  /* error */
+            );
   if (adapter == NULL) {
     g_fprintf(stderr, error -> message);
     return 1;
@@ -227,12 +253,12 @@ int main(void) {
   }
 
   // Add a listener for new device discovery
-  g_signal_connect(
-    device_manager,  /* instance */
-    "object-added",  /* detailed signal */
-    G_CALLBACK(on_device_manager_object_added),  /* callback */
-    NULL  /* data */
-  );
+  device_manager_signal_handler = g_signal_connect(
+                                    device_manager,  /* instance */
+                                    "object-added",  /* detailed signal */
+                                    G_CALLBACK(on_device_manager_object_added),  /* callback */
+                                    NULL  /* data */
+                                  );
 
   // Start device discovery
   GVariant* start_discover_variant = g_dbus_proxy_call_sync(
@@ -250,7 +276,7 @@ int main(void) {
   }
   g_variant_unref(start_discover_variant);
 
-  // Run main loop forever, don't need to call stop discovery
+  signal(SIGINT, cleanup);
   g_main_loop_run(loop);
 
   return 0;
